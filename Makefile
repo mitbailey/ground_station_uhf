@@ -4,9 +4,12 @@ COBJS = modem/src/libuio.o modem/src/adidma.o modem/src/rxmodem.o modem/src/txmo
 CXXFLAGS = -I ./include/ -I ./modem/ -I ./modem/include/ -Wall -pthread
 TARGET = roof_uhf.out
 
-all: $(COBJS)
+all: $(COBJS) $(CPPOBJS)
 	$(CXX) $(CXXFLAGS) $(COBJS) $(CPPOBJS) -o $(TARGET)
 	./$(TARGET)
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -o $@ -c $<
 
 %.o: %.c
 	$(CXX) $(CXXFLAGS) -o $@ -c $<
