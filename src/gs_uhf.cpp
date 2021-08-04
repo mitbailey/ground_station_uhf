@@ -18,12 +18,64 @@
 #include "gs_uhf.hpp"
 #include "meb_debug.hpp"
 
+// SegFault
+// is gs_uhf_rx_thread
+
 void *gs_uhf_rx_thread(void *args)
 {
+#ifdef RADIO_NOT_CONNECTED
+    // To avoid a SegFault at
+    // ssize_t buffer_size = rxmodem_receive(global_data->rx_modem);
+    // during debug testing without a radio attached.
+    while (1)
+    {
+        usleep(15 SEC);
+    }
+#endif
     global_data_t *global_data = (global_data_t *)args;
+
+    // Initialize (rx/tx)modem IDs.
+    int rxmodem_id = 0;
+    int rxdma_id = 0;
+    int txmodem_id = 0;
+    int txdma_id = 0;
 
     while (global_data->thread_status > 0)
     {
+        // Init RX if not already.
+        if (global_data->uhf_rx_status == UHFSTAT_NOT_READY)
+        {
+            if (rxmodem_init(global_data->rx_modem, rxmodem_id, rxdma_id) > 0)
+            {
+                global_data->uhf_rx_status == UHFSTAT_INITD;
+            }
+        }
+
+        // Arm RX if not already.
+        if (global_data->uhf_rx_status == UHFSTAT_INITD)
+        {
+            if (rxmodem_start(global_data->rx_modem) > 0)
+            {
+                global_data->uhf_rx_status = UHFSTAT_ARMED;
+            }
+        }
+
+        // Init TX if not already.
+        if (global_data->uhf_tx_status == UHFSTAT_NOT_READY)
+        {
+            if (txmodem_init(global_data->tx_modem, txmodem_id, txdma_id) > 0)
+            {
+                global_data->uhf_tx_status = UHFSTAT_INITD;
+            }
+        }
+
+        if (global_data->uhf_rx_status != UHFSTAT_ARMED || global_data->uhf_tx_status != UHFSTAT_INITD)
+        {
+            dbprintlf(RED_FG "UHF Radio status failure: RX: %d, TX: %d", (int)global_data->uhf_rx_status, (int)global_data->uhf_tx_status);
+            usleep(5 SEC);
+            continue;
+        }
+
         ssize_t buffer_size = rxmodem_receive(global_data->rx_modem);
 
         uint8_t *buffer = (uint8_t *)malloc(buffer_size * sizeof(char));
@@ -37,7 +89,8 @@ void *gs_uhf_rx_thread(void *args)
             continue;
         }
 
-        gs_network_tx(global_data, buffer, buffer_size);
+        // gs_network_tx(global_data, buffer, buffer_size);
+        gs_network_transmit(global_data->network_data, CS_TYPE_DATA, CS_ENDPOINT_CLIENT, buffer, buffer_size);
 
         free(buffer);
     }
@@ -56,11 +109,12 @@ void *gs_network_rx_thread(void *args)
 
     // TODO: Similar, if not identical, to the network functionality in ground_station.
     // Roof UHF is a network client to the GS Server, and so should be very similar in socketry to ground_station.
+
     while (network_data->rx_active)
     {
         if (!network_data->connection_ready)
         {
-            sleep(5);
+            usleep(5 SEC);
             continue;
         }
 
@@ -121,6 +175,33 @@ void *gs_network_rx_thread(void *args)
                 NETWORK_FRAME_TYPE type = network_frame->getType();
                 switch (type)
                 {
+                case CS_TYPE_ACK:
+                {
+                    dbprintlf(BLUE_FG "Received an ACK frame!");
+                    break;
+                }
+                case CS_TYPE_NACK:
+                {
+                    dbprintlf(BLUE_FG "Received a NACK frame!");
+                    break;
+                }
+                case CS_TYPE_CONFIG_UHF:
+                {
+                    dbprintlf(BLUE_FG "Received an UHF CONFIG frame!");
+                    break;
+                }
+                case CS_TYPE_DATA:
+                {
+                    dbprintlf(BLUE_FG "Received a DATA frame!");
+                    break;
+                }
+                case CS_TYPE_CONFIG_XBAND:
+                case CS_TYPE_NULL:
+                case CS_TYPE_ERROR:
+                default:
+                {
+                    break;
+                }
                 }
                 free(payload);
             }
@@ -129,7 +210,7 @@ void *gs_network_rx_thread(void *args)
                 break;
             }
         }
-        if (read_size = 0)
+        if (read_size == 0)
         {
             dbprintlf(RED_BG "Connection forcibly closed by the server.");
             strcpy(network_data->discon_reason, "SERVER-FORCED");
@@ -156,15 +237,10 @@ void *gs_network_rx_thread(void *args)
     return nullptr;
 }
 
-void gs_network_tx(global_data_t *global_data, uint8_t *buffer, ssize_t buffer_size)
-{
-    NetworkFrame *network_frame = new NetworkFrame(CS_TYPE_DATA, buffer_size);
-    network_frame->storePayload(CS_ENDPOINT_CLIENT, buffer, buffer_size);
-    network_frame->sendFrame(global_data->network_data);
-}
-
 void *gs_polling_thread(void *args)
 {
+    dbprintlf(BLUE_FG "Beginning polling thread.");
+
     global_data_t *global_data = (global_data_t *)args;
     NetworkData *network_data = global_data->network_data;
 
@@ -177,12 +253,20 @@ void *gs_polling_thread(void *args)
             null_frame->sendFrame(network_data);
             delete null_frame;
         }
-
+        else
+        {
+            // Get our GS Network connection back up and running.
+            gs_connect_to_server(global_data);
+        }
         usleep(SERVER_POLL_RATE SEC);
     }
 
     dbprintlf(FATAL "GS_POLLING_THREAD IS EXITING!");
-    return NULL;
+    if (global_data->thread_status > 0)
+    {
+        global_data->thread_status = 0;
+    }
+    return nullptr;
 }
 
 int gs_network_transmit(NetworkData *network_data, NETWORK_FRAME_TYPE type, NETWORK_FRAME_ENDPOINT endpoint, void *data, int data_size)
@@ -203,10 +287,16 @@ int gs_network_transmit(NetworkData *network_data, NETWORK_FRAME_TYPE type, NETW
     return 1;
 }
 
+int gs_uhf_transmit()
+{
+}
+
 int gs_connect_to_server(global_data_t *global_data)
 {
     NetworkData *network_data = global_data->network_data;
     int connect_status = -1;
+
+    dbprintlf(BLUE_FG "Attempting connection to %s:%d.", DESTINATION_IP, DESTINATION_PORT);
 
     network_data->serv_ip->sin_port = htons(DESTINATION_PORT);
     if ((network_data->socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)

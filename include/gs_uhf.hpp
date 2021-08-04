@@ -17,11 +17,19 @@
 #include "txmodem.h"
 #include "network.hpp"
 
-#define DESTINATION_IP "127.0.0.1"
+// #define RADIO_NOT_CONNECTED // To avoid a SegFault when no radio is attached.
+#define DESTINATION_IP "172.23.12.156"
 #define DESTINATION_PORT 54210
 #define SERVER_POLL_RATE 5 // Once per this many seconds
 #define SEC *1000000
 #define RECV_TIMEOUT 15
+
+enum UHF_STATUS
+{
+    UHFSTAT_NOT_READY = 0,
+    UHFSTAT_INITD,
+    UHFSTAT_ARMED
+};
 
 typedef struct
 {
@@ -30,6 +38,8 @@ typedef struct
     txmodem tx_modem[1];
     // NetworkFrame *network_frame;
     NetworkData *network_data;
+    UHF_STATUS uhf_tx_status; // 0 = not ready, 1 = ready
+    UHF_STATUS uhf_rx_status; // 0 = not initd nor armed, 1 = initd but not armed, 2 = ready
     uint8_t netstat;
 } global_data_t;
 
@@ -86,6 +96,8 @@ void gs_network_tx(global_data_t *global_data, uint8_t *buffer, ssize_t buffer_s
 
 /**
  * @brief Periodically polls the Ground Station Network Server for its status.
+ * 
+ * Doubles as the GS Network connection watch-dog, tries to restablish connection to the server if it sees that we are no longer connected.
  * 
  * @param args 
  * @return void* 

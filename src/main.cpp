@@ -34,76 +34,60 @@ int main(int argc, char **argv)
     global_data->network_data = new NetworkData();
     global_data->network_data->rx_active = true;
 
-    // Initialize rxmodem.
-    rxmodem rx_modem = {0};
-    int rxmodem_id = 0;
-    int rxdma_id = 0;
-    rxmodem_init(&rx_modem, rxmodem_id, rxdma_id);
-
-    // Initialize txmodem.
-    txmodem tx_modem = {0};
-    int txmodem_id = 0;
-    int txdma_id = 0;
-    txmodem_init(&tx_modem, txmodem_id, txdma_id);
-
-    // Arm the modem.
-    rxmodem_start(&rx_modem);
-
     // 1 = All good, 0 = recoverable failure, -1 = fatal failure (close program)
     global_data->thread_status = 1;
 
-    // Start Ground Station Network threads.
-    pthread_t rx_thread_id, polling_thread_id;
-    pthread_create(&rx_thread_id, NULL, gs_network_rx_thread, global_data);
-    pthread_create(&polling_thread_id, NULL, gs_polling_thread, global_data);
+    // Create Ground Station Network thread IDs.
+    pthread_t net_polling_tid, net_rx_tid, uhf_rx_tid;
 
     // Start the RX threads, and restart them should it be necessary.
-    while (global_data->thread_status > 0)
+    // Only gets-out if a thread declares an unrecoverable emergency and sets its status to -1.
+    while (global_data->thread_status > -1)
     {
         // Initialize and begin socket communication to the server.
         if (!global_data->network_data->connection_ready)
         {
+            // TODO: Check if this is the desired functionality.
+            // Currently, the program will not proceed past this point if it cannot connect to the server.
+            // TODO: This probably means that losing connection to the server is a recoverable error (threads should set their statuses to 0).
             while (gs_connect_to_server(global_data) != 1)
             {
                 dbprintlf(RED_FG "Failed to establish connection to server.");
-                usleep(2.5 SEC);
+                usleep(5 SEC);
             }
         }
 
-        pthread_t uhf_rx_tid, net_rx_tid;
-        pthread_create(&uhf_rx_tid, NULL, gs_uhf_rx_thread, &global_data);
-        pthread_create(&net_rx_tid, NULL, gs_network_rx_thread, &global_data);
-
+        // Start the threads.
+        pthread_create(&net_polling_tid, NULL, gs_polling_thread, global_data);
+        pthread_create(&net_rx_tid, NULL, gs_network_rx_thread, global_data);
+        pthread_create(&uhf_rx_tid, NULL, gs_uhf_rx_thread, global_data);
+        
         void *thread_return;
-        pthread_join(uhf_rx_tid, &thread_return);
+        pthread_join(net_polling_tid, &thread_return);
         pthread_join(net_rx_tid, &thread_return);
+        pthread_join(uhf_rx_tid, &thread_return);
 
-        if (!global_data->network_data->connection_ready)
-        {
-            // TODO: Re-establish connection.
-
-            if (!global_data->network_data->connection_ready)
-            {
-                usleep(2.5 SEC);
-            }
-        }
+        // Loop will begin, restarting the threads.
     }
 
     // Finished.
-    void *retval;
-    pthread_cancel(rx_thread_id);
-    pthread_cancel(polling_thread_id);
-    pthread_join(rx_thread_id, &retval);
-    retval == PTHREAD_CANCELED ? printf("Good rx_thread_id join.\n") : printf("Bad rx_thread_id join.\n");
-    pthread_join(polling_thread_id, &retval);
-    retval == PTHREAD_CANCELED ? printf("Good polling_thread_id join.\n") : printf("Bad polling_thread_id join.\n");
+    void *thread_return;
+    pthread_cancel(net_polling_tid);
+    pthread_cancel(net_rx_tid);
+    pthread_cancel(uhf_rx_tid);
+    pthread_join(net_polling_tid, &thread_return);
+    thread_return == PTHREAD_CANCELED ? printf("Good net_polling_tid join.\n") : printf("Bad net_polling_tid join.\n");
+    pthread_join(net_rx_tid, &thread_return);
+    thread_return == PTHREAD_CANCELED ? printf("Good net_rx_tid join.\n") : printf("Bad net_rx_tid join.\n");
+    pthread_join(uhf_rx_tid, &thread_return);
+    thread_return == PTHREAD_CANCELED ? printf("Good uhf_rx_tid join.\n") : printf("Bad uhf_rx_tid join.\n");
 
     // Disarm the modem.
-    rxmodem_stop(&rx_modem);
+    rxmodem_stop(global_data->rx_modem);
 
     // Destroy modems.
-    rxmodem_destroy(&rx_modem);
-    txmodem_destroy(&tx_modem);
+    rxmodem_destroy(global_data->rx_modem);
+    txmodem_destroy(global_data->tx_modem);
 
     // Destroy other things.
     close(global_data->network_data->socket);
