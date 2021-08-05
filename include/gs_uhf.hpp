@@ -30,8 +30,6 @@ typedef struct
     network_data_t network_data[1];
     bool uhf_ready;
     uint8_t netstat;
-    bool sw_update_in_progress;
-    char sw_update_filename[64];
 } global_data_t;
 
 /**
