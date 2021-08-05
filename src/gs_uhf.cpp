@@ -168,7 +168,7 @@ void *gs_network_rx_thread(void *args)
                     // TODO: Send to SPACE-HAUC.
                     if (global_data->uhf_ready)
                     {
-                        ssize_t retval = uhf_write(global_data->modem, payload, payload_size);
+                        ssize_t retval = uhf_write(global_data->modem, (char *)payload, payload_size);
                         dbprintlf("Transmitted %d bytes to SPACE-HAUC.");
                     }
                     else
