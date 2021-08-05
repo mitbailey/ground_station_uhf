@@ -63,7 +63,25 @@ void *gs_uhf_rx_thread(void *args)
             dbprintlf("Received from UHF.");
         }
 
-        gs_network_transmit(global_data->network_data, CS_TYPE_DATA, CS_ENDPOINT_CLIENT, buffer, sizeof(buffer));
+        if (global_data->sw_update_in_progress == false)
+        {
+            // Software update is not currently happening, so handoff received data to GUI client operator.
+            gs_network_transmit(global_data->network_data, CS_TYPE_DATA, CS_ENDPOINT_CLIENT, buffer, sizeof(buffer));
+        }
+        else if (global_data->sw_update_in_progress == true)
+        {
+            // Software update is in progress.
+            // TODO: This is where the modified code from https://github.com/SPACE-HAUC/sw_upd_gs/blob/master/src/sw_update_gs.c sw_gs_send_file(...) should go. 
+            // TODO: Getting a sendable file and actually performing an sw_update are two very different things. First, the GUI Client operator needs to send Roof UHF a file. Then, the operator needs to command Roof UHF to perform an update.
+
+            // TODO: If an error is encountered during sw_update, transmit an error message to the network.
+  
+
+            // Software update code goes here.
+
+
+
+        }
     }
 
     if (global_data->network_data->thread_status > 0)
@@ -78,7 +96,7 @@ void *gs_network_rx_thread(void *args)
     global_data_t *global_data = (global_data_t *)args;
     network_data_t *network_data = global_data->network_data;
 
-    // TODO: Similar, if not identical, to the network functionality in ground_station.
+    // Similar, if not identical, to the network functionality in ground_station.
     // Roof UHF is a network client to the GS Server, and so should be very similar in socketry to ground_station.
 
     while (network_data->rx_active)
