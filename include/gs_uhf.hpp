@@ -13,33 +13,22 @@
 #define GS_UHF_HPP
 
 #include <stdint.h>
-#include "rxmodem.h"
-#include "txmodem.h"
+#include "uhf_modem.h"
 #include "network.hpp"
 
 // #define RADIO_NOT_CONNECTED // To avoid a SegFault when no radio is attached.
-#define DESTINATION_IP "172.23.12.156"
-#define DESTINATION_PORT 54210
 #define SERVER_POLL_RATE 5 // Once per this many seconds
 #define SEC *1000000
 #define RECV_TIMEOUT 15
-
-enum UHF_STATUS
-{
-    UHFSTAT_NOT_READY = 0,
-    UHFSTAT_INITD,
-    UHFSTAT_ARMED
-};
+#define RADIO_DEVICE_NAME "my_device"
 
 typedef struct
 {
     int thread_status;
-    rxmodem rx_modem[1];
-    txmodem tx_modem[1];
+    uhf_modem_t modem; // Its just an int.
     // NetworkFrame *network_frame;
     NetworkData *network_data;
-    UHF_STATUS uhf_tx_status; // 0 = not ready, 1 = ready
-    UHF_STATUS uhf_rx_status; // 0 = not initd nor armed, 1 = initd but not armed, 2 = ready
+    bool uhf_ready;
     uint8_t netstat;
 } global_data_t;
 

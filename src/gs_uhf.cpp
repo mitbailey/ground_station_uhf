@@ -23,76 +23,47 @@
 
 void *gs_uhf_rx_thread(void *args)
 {
-#ifdef RADIO_NOT_CONNECTED
-    // To avoid a SegFault at
-    // ssize_t buffer_size = rxmodem_receive(global_data->rx_modem);
-    // during debug testing without a radio attached.
-    while (1)
-    {
-        usleep(15 SEC);
-    }
-#endif
-    global_data_t *global_data = (global_data_t *)args;
+    // TODO: As of right now, there is no way to detect if the UHF Radio crashes, which may require a re-init. In this event, global_data->uhf_ready should be set to false and the radio should be re-init'd. However, this feature doesn't exist in the middleware.
+    // TODO: Possibly just assume any uhf_read failure is because of a crash UHF?
 
-    // Initialize (rx/tx)modem IDs.
-    int rxmodem_id = 0;
-    int rxdma_id = 0;
-    int txmodem_id = 0;
-    int txdma_id = 0;
+    global_data_t *global_data = (global_data_t *)args;
 
     while (global_data->thread_status > 0)
     {
-        // Init RX if not already.
-        if (global_data->uhf_rx_status == UHFSTAT_NOT_READY)
+        // Init UHF.
+        if (!global_data->uhf_ready)
         {
-            if (rxmodem_init(global_data->rx_modem, rxmodem_id, rxdma_id) > 0)
+            global_data->modem = uhf_init(RADIO_DEVICE_NAME);
+            if (global_data->modem < 0)
             {
-                global_data->uhf_rx_status == UHFSTAT_INITD;
+                dbprintlf(RED_FG "UHF Radio initialization failure (%d).", global_data->modem);
+                usleep(5 SEC);
+                continue;
             }
+            global_data->uhf_ready = true;
         }
 
-        // Arm RX if not already.
-        if (global_data->uhf_rx_status == UHFSTAT_INITD)
-        {
-            if (rxmodem_start(global_data->rx_modem) > 0)
-            {
-                global_data->uhf_rx_status = UHFSTAT_ARMED;
-            }
-        }
+        char buffer[UHF_MAX_PAYLOAD_SIZE];
+        memset(buffer, 0x0, sizeof(buffer));
 
-        // Init TX if not already.
-        if (global_data->uhf_tx_status == UHFSTAT_NOT_READY)
-        {
-            if (txmodem_init(global_data->tx_modem, txmodem_id, txdma_id) > 0)
-            {
-                global_data->uhf_tx_status = UHFSTAT_INITD;
-            }
-        }
+        int retval = uhf_read(global_data->modem, buffer, sizeof(buffer));
 
-        if (global_data->uhf_rx_status != UHFSTAT_ARMED || global_data->uhf_tx_status != UHFSTAT_INITD)
+        if (retval < 0)
         {
-            dbprintlf(RED_FG "UHF Radio status failure: RX: %d, TX: %d", (int)global_data->uhf_rx_status, (int)global_data->uhf_tx_status);
-            usleep(5 SEC);
+            dbprintlf(RED_FG "UHF read error %d.", retval);
             continue;
         }
-
-        ssize_t buffer_size = rxmodem_receive(global_data->rx_modem);
-
-        uint8_t *buffer = (uint8_t *)malloc(buffer_size * sizeof(char));
-        memset(buffer, 0x0, buffer_size);
-
-        ssize_t read_size = 0;
-        read_size = rxmodem_read(global_data->rx_modem, buffer, buffer_size);
-        if (read_size != buffer_size)
+        else if (retval == 0)
         {
-            dbprintlf(RED_FG "Read %d of %d bytes.", read_size, buffer_size);
+            // Timed-out.
             continue;
         }
+        else
+        {
+            dbprintlf("Received from UHF.");
+        }
 
-        // gs_network_tx(global_data, buffer, buffer_size);
-        gs_network_transmit(global_data->network_data, CS_TYPE_DATA, CS_ENDPOINT_CLIENT, buffer, buffer_size);
-
-        free(buffer);
+        gs_network_transmit(global_data->network_data, CS_TYPE_DATA, CS_ENDPOINT_CLIENT, buffer, sizeof(buffer));
     }
 
     if (global_data->thread_status > 0)
@@ -188,11 +159,22 @@ void *gs_network_rx_thread(void *args)
                 case CS_TYPE_CONFIG_UHF:
                 {
                     dbprintlf(BLUE_FG "Received an UHF CONFIG frame!");
+                    // TODO: Configure yourself.
                     break;
                 }
                 case CS_TYPE_DATA:
                 {
                     dbprintlf(BLUE_FG "Received a DATA frame!");
+                    // TODO: Send to SPACE-HAUC.
+                    if (global_data->uhf_ready)
+                    {
+                        ssize_t retval = uhf_write(global_data->modem, payload, payload_size);
+                        dbprintlf("Transmitted %d bytes to SPACE-HAUC.");
+                    }
+                    else
+                    {
+                        dbprintlf(RED_FG "Cannot send received data, UHF radio is not ready!");
+                    }
                     break;
                 }
                 case CS_TYPE_CONFIG_XBAND:
@@ -287,24 +269,20 @@ int gs_network_transmit(NetworkData *network_data, NETWORK_FRAME_TYPE type, NETW
     return 1;
 }
 
-int gs_uhf_transmit()
-{
-}
-
 int gs_connect_to_server(global_data_t *global_data)
 {
     NetworkData *network_data = global_data->network_data;
     int connect_status = -1;
 
-    dbprintlf(BLUE_FG "Attempting connection to %s:%d.", DESTINATION_IP, DESTINATION_PORT);
+    dbprintlf(BLUE_FG "Attempting connection to %s:%d.", SERVER_IP, SERVER_PORT);
 
-    network_data->serv_ip->sin_port = htons(DESTINATION_PORT);
+    network_data->serv_ip->sin_port = htons(SERVER_PORT);
     if ((network_data->socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         dbprintlf(RED_FG "Socket creation error.");
         connect_status = -1;
     }
-    else if (inet_pton(AF_INET, DESTINATION_IP, &network_data->serv_ip->sin_addr) <= 0)
+    else if (inet_pton(AF_INET, SERVER_IP, &network_data->serv_ip->sin_addr) <= 0)
     {
         dbprintlf(RED_FG "Invalid address; address not supported.");
         connect_status = -2;

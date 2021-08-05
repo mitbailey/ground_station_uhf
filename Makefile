@@ -1,7 +1,7 @@
 CXX = g++
 CPPOBJS = src/main.o src/gs_uhf.o src/network.o
-COBJS = modem/src/libuio.o modem/src/adidma.o modem/src/rxmodem.o modem/src/txmodem.o
-CXXFLAGS = -I ./include/ -I ./modem/ -I ./modem/include/ -Wall -pthread
+COBJS = uhf_modem/uhf_modem.o
+CXXFLAGS = -I ./include/ -I ./uhf_modem/ -Wall -pthread
 TARGET = roof_uhf.out
 
 all: $(COBJS) $(CPPOBJS)

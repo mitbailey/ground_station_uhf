@@ -11,8 +11,7 @@
 
 #include <pthread.h>
 #include <unistd.h>
-#include "txmodem.h"
-#include "rxmodem.h"
+#include "uhf_modem.h"
 #include "meb_debug.hpp"
 #include "gs_uhf.hpp"
 
@@ -82,12 +81,8 @@ int main(int argc, char **argv)
     pthread_join(uhf_rx_tid, &thread_return);
     thread_return == PTHREAD_CANCELED ? printf("Good uhf_rx_tid join.\n") : printf("Bad uhf_rx_tid join.\n");
 
-    // Disarm the modem.
-    rxmodem_stop(global_data->rx_modem);
-
-    // Destroy modems.
-    rxmodem_destroy(global_data->rx_modem);
-    txmodem_destroy(global_data->tx_modem);
+    // Destroy modem.
+    uhf_destroy(global_data->modem);
 
     // Destroy other things.
     close(global_data->network_data->socket);

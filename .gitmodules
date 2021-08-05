@@ -1,0 +1,3 @@
+[submodule "uhf_modem"]
+	path = uhf_modem
+	url = git@github.com:SPACE-HAUC/uhf_modem
