@@ -21,10 +21,10 @@
 #define SEC *1000000
 #define RECV_TIMEOUT 15
 #define RADIO_DEVICE_NAME "my_device"
+#define SERVER_PORT 54210
 
 typedef struct
 {
-    int thread_status;
     uhf_modem_t modem; // Its just an int.
     // NetworkFrame *network_frame;
     network_data_t network_data[1];
