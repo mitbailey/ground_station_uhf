@@ -174,6 +174,10 @@ void *gs_network_rx_thread(void *args)
                     else
                     {
                         dbprintlf(RED_FG "Cannot send received data, UHF radio is not ready!");
+                        cs_ack_t nack[1];
+                        nack->ack = 0;
+                        nack->code = NACK_NO_UHF;
+                        gs_network_transmit(network_data, CS_TYPE_NACK, CS_ENDPOINT_CLIENT, nack, sizeof(nack));
                     }
                     break;
                 }

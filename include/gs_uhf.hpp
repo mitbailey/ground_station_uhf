@@ -23,6 +23,8 @@
 #define RADIO_DEVICE_NAME "my_device"
 #define SERVER_PORT 54210
 
+#define NACK_NO_UHF 0x756866 // Roof UHF says it cannot access UHF communications.
+
 typedef struct
 {
     uhf_modem_t modem; // Its just an int.
@@ -57,6 +59,12 @@ typedef struct __attribute__((packed))
     int data_size;          // 4
     unsigned char data[46]; // 46
 } cmd_output_t;
+
+typedef struct
+{
+    uint8_t ack; // 0 = NAck, 1 = Ack
+    int code;    // Error code or some other info.
+} cs_ack_t;      // (N/ACK)
 
 /**
  * @brief Listens for UHF packets from SPACE-HAUC.
