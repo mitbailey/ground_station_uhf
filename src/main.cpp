@@ -11,7 +11,6 @@
 
 #include <pthread.h>
 #include <unistd.h>
-#include "uhf_modem.h"
 #include "meb_debug.hpp"
 #include "gs_uhf.hpp"
 
@@ -81,8 +80,8 @@ int main(int argc, char **argv)
     pthread_join(uhf_rx_tid, &thread_return);
     thread_return == PTHREAD_CANCELED ? printf("Good uhf_rx_tid join.\n") : printf("Bad uhf_rx_tid join.\n");
 
-    // Destroy modem.
-    uhf_destroy(global_data->modem);
+    // Put radio to sleep.
+    si446x_sleep();
 
     // Destroy other things.
     close(global_data->network_data->socket);

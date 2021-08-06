@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <si446x.h>
 #include "gs_uhf.hpp"
 #include "meb_debug.hpp"
 
@@ -33,20 +34,24 @@ void *gs_uhf_rx_thread(void *args)
         // Init UHF.
         if (!global_data->uhf_ready)
         {
-            global_data->modem = uhf_init(RADIO_DEVICE_NAME);
-            if (global_data->modem < 0)
+            global_data->uhf_initd = gs_uhf_init();
+            if (global_data->uhf_initd != 1)
             {
-                dbprintlf(RED_FG "UHF Radio initialization failure (%d).", global_data->modem);
+                dbprintlf(RED_FG "UHF Radio initialization failure (%d).", global_data->uhf_initd);
                 usleep(5 SEC);
                 continue;
             }
             global_data->uhf_ready = true;
         }
 
-        char buffer[UHF_MAX_PAYLOAD_SIZE];
+        char buffer[GST_MAX_PACKET_SIZE];
         memset(buffer, 0x0, sizeof(buffer));
 
-        int retval = uhf_read(global_data->modem, buffer, sizeof(buffer));
+        // Enable pipe mode.
+        // gs_uhf_enable_pipe();
+        si446x_en_pipe();
+
+        int retval = gs_uhf_read(buffer, sizeof(buffer), UHF_RSSI, &global_data->uhf_ready);
 
         if (retval < 0)
         {
@@ -168,7 +173,13 @@ void *gs_network_rx_thread(void *args)
                     // TODO: Send to SPACE-HAUC.
                     if (global_data->uhf_ready)
                     {
-                        ssize_t retval = uhf_write(global_data->modem, (char *)payload, payload_size);
+                        // ssize_t retval = uhf_write(global_data->modem, (char *)payload, payload_size);
+
+                        // TODO: Find a better spot for this. Perhaps detecting if its been more than 2 minutes since last TX.
+                        // gs_uhf_enable_pipe();
+                        si446x_en_pipe();
+
+                        ssize_t retval = gs_uhf_write((char *)payload, payload_size, &global_data->uhf_ready);
                         dbprintlf("Transmitted %d bytes to SPACE-HAUC.");
                     }
                     else
@@ -221,4 +232,97 @@ void *gs_network_rx_thread(void *args)
         global_data->network_data->thread_status = 0;
     }
     return nullptr;
+}
+
+int gs_uhf_init(void)
+{
+    // (void) gst_error_str; // suppress unused warning
+    si446x_init();
+    /*
+     * chipRev: 0x22
+     * partBuild: 0x0
+     * id: 0x8600
+     * customer: 0x0
+     * romId: 0x6
+     * revExternal: 0x6
+     * revBranch: 0x0
+     * revInternal: 0x2
+     * patch: 0x0
+     * func: 0x1
+     */
+    si446x_info_t info[1];
+    memset(info, 0x0, sizeof(si446x_info_t));
+    si446x_getInfo(info);
+    int cond = (info->chipRev == 0x22) && (info->partBuild == 0x00) && (info->id == 0x8600) && (info->customer == 0x00) && (info->romId == 0x6);
+    return cond ? 1 : 0;
+}
+
+ssize_t gs_uhf_read(char *buf, ssize_t buffer_size, int16_t *rssi, bool *gst_done)
+{
+    if (buffer_size < GST_MAX_PAYLOAD_SIZE)
+    {
+        eprintf("Payload size incorrect.");
+        return GST_ERROR;
+    }
+
+    gst_frame_t frame[1];
+    memset(frame, 0x0, sizeof(gst_frame_t));
+
+    ssize_t retval = 0;
+    while (((retval = si446x_read(frame, sizeof(gst_frame_t), rssi)) <= 0) && (!(*gst_done)))
+        ;
+
+    if (retval != sizeof(gst_frame_t))
+    {
+        eprintf("Read in %d bytes, not a valid packet", retval);
+        return -GST_PACKET_INCOMPLETE;
+    }
+
+    if (frame->guid != GST_GUID)
+    {
+        eprintf("GUID 0x%04x", frame->guid);
+        return -GST_GUID_ERROR;
+    }
+    else if (frame->crc != frame->crc1)
+    {
+        eprintf("0x%x != 0x%x", frame->crc, frame->crc1);
+        return -GST_CRC_MISMATCH;
+    }
+    else if (frame->crc != internal_crc16(frame->payload, GST_MAX_PAYLOAD_SIZE))
+    {
+        eprintf("CRC %d", frame->crc);
+        return -GST_CRC_ERROR;
+    }
+    else if (frame->termination != GST_TERMINATION)
+    {
+        eprintf("TERMINATION 0x%x", frame->termination);
+    }
+
+    memcpy(buf, frame->payload, GST_MAX_PAYLOAD_SIZE);
+
+    return retval;
+}
+
+ssize_t gs_uhf_write(char *buf, ssize_t buffer_size, bool *gst_done)
+{
+    if (buffer_size < GST_MAX_PAYLOAD_SIZE)
+    {
+        eprintf("Payload size incorrect.");
+        return -1;
+    }
+
+    gst_frame_t frame[1];
+    memset(frame, 0x0, sizeof(gst_frame_t));
+
+    frame->guid = GST_GUID;
+    memcpy(frame->payload, buf, buffer_size);
+    frame->crc = internal_crc16(frame->payload, GST_MAX_PAYLOAD_SIZE);
+    frame->crc1 = frame->crc;
+    frame->termination = GST_TERMINATION;
+
+    ssize_t retval = 0;
+    while (((retval = si446x_write(frame, sizeof(gst_frame_t))) <= 0) && (!(*gst_done)))
+        ;
+    
+    return retval;
 }

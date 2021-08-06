@@ -13,7 +13,7 @@
 #define GS_UHF_HPP
 
 #include <stdint.h>
-#include "uhf_modem.h"
+#include <si446x.h>
 #include "network.hpp"
 
 #define SERVER_POLL_RATE 5 // Once per this many seconds
@@ -24,10 +24,40 @@
 
 #define NACK_NO_UHF 0x756866 // Roof UHF says it cannot access UHF communications.
 
+#define UHF_RSSI 0
+
+/// From SPACE-HAUC/uhf_gst ///
+#define GST_MAX_PAYLOAD_SIZE 56
+#define GST_MAX_PACKET_SIZE 64
+#define GST_GUID 0x6f35
+#define GST_TERMINATION 0x0d0a // CRLF
+typedef struct __attribute__((packed))
+{
+    uint16_t guid;
+    uint16_t crc;
+    uint8_t payload[GST_MAX_PAYLOAD_SIZE];
+    uint16_t crc1;
+    uint16_t termination;
+} gst_frame_t;
+#define GST_MAX_FRAME_SIZE sizeof(gst_frame_t)
+
+
+enum GST_ERRORS
+{
+    GST_ERROR = -1,            //!< General error
+    GST_TOUT = 0,              //!< Operation timed out
+    GST_SUCCESS = 1,           //!<
+    GST_PACKET_INCOMPLETE = 2, //!< Incomplete data received
+    GST_GUID_ERROR = 3,        //!< GUID mismatch
+    GST_CRC_MISMATCH = 4,      //!< CRC mismatch
+    GST_CRC_ERROR = 5,         //!< Wrong CRC
+};
+///////////////////////////////
+
 typedef struct
 {
-    uhf_modem_t modem; // Its just an int.
-    // NetworkFrame *network_frame;
+    // uhf_modem_t modem; // Just an int.
+    int uhf_initd;
     network_data_t network_data[1];
     bool uhf_ready;
     uint8_t netstat;
@@ -134,5 +164,47 @@ int gs_connect_to_server(global_data_t *global_data);
  * @return int 
  */
 int gs_connect(int socket, const struct sockaddr *address, socklen_t socket_size, int tout_s);
+
+/**
+ * @brief Initializes X-Band radio.
+ * 
+ * see: gst_init()
+ * https://github.com/SPACE-HAUC/uhf_gst/blob/4a051f511301f1ff8333d3a960d19ce06a463b11/src/uhf_gst.c
+ * 
+ * @return int 1 on success, 0 on failure.
+ */
+int gs_uhf_init(void);
+
+/**
+ * @brief 
+ * 
+ * see: gst_read()
+ * https://github.com/SPACE-HAUC/uhf_gst/blob/4a051f511301f1ff8333d3a960d19ce06a463b11/src/uhf_gst.c
+ * 
+ * @param buf 
+ * @param buffer_size 
+ * @param rssi 
+ * @param gst_done 
+ * @return ssize_t 
+ */
+ssize_t gs_uhf_read(char *buf, ssize_t buffer_size, int16_t *rssi, bool *gst_done);
+
+/**
+ * @brief 
+ * 
+ * see: gst_write()
+ * https://github.com/SPACE-HAUC/uhf_gst/blob/4a051f511301f1ff8333d3a960d19ce06a463b11/src/uhf_gst.c
+ * 
+ * @param buf 
+ * @param buffer_size 
+ * @param gst_done 
+ * @return ssize_t 
+ */
+ssize_t gs_uhf_write(char *buf, ssize_t buffer_size, bool *gst_done);
+
+// NOTE: Needs to be called every time we want to begin talking to SPACE-HAUC, but haven't had a communication with it for more than a couple minutes.
+// void gs_uhf_enable_pipe(void) __attribute__((alias("si446x_en_pipe")));
+
+// TODO: Add new stuff to Makefile so its not undefined reference.
 
 #endif // GS_UHF_HPP
