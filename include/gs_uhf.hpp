@@ -16,7 +16,6 @@
 #include "uhf_modem.h"
 #include "network.hpp"
 
-// #define RADIO_NOT_CONNECTED // To avoid a SegFault when no radio is attached.
 #define SERVER_POLL_RATE 5 // Once per this many seconds
 #define SEC *1000000
 #define RECV_TIMEOUT 15
