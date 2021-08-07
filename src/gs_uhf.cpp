@@ -236,8 +236,10 @@ void *gs_network_rx_thread(void *args)
 
 int gs_uhf_init(void)
 {
+    dbprintlf(RED_BG "TEST CHECKPOINT: Before calling si446x_init().");
     // (void) gst_error_str; // suppress unused warning
     si446x_init();
+    dbprintlf(RED_BG "TEST CHECKPOINT: After calling si446x_init().");
     /*
      * chipRev: 0x22
      * partBuild: 0x0
