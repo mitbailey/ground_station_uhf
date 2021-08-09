@@ -41,9 +41,11 @@ void *gs_uhf_rx_thread(void *args)
                 usleep(5 SEC);
                 continue;
             }
-            
+
             // TODO: COMMENT OUT FOR DEBUGGING PURPOSES ONLY
+#ifndef UHF_NOT_CONNECTED_DEBUG
             global_data->uhf_ready = true;
+#endif
         }
 
         char buffer[GST_MAX_PACKET_SIZE];
@@ -53,7 +55,9 @@ void *gs_uhf_rx_thread(void *args)
         // gs_uhf_enable_pipe();
 
         // TODO: COMMENT OUT FOR DEBUGGING PURPOSES ONLY
+#ifndef UHF_NOT_CONNECTED_DEBUG
         si446x_en_pipe();
+#endif
 
         int retval = gs_uhf_read(buffer, sizeof(buffer), UHF_RSSI, &global_data->uhf_ready);
 
@@ -246,7 +250,9 @@ int gs_uhf_init(void)
     // WARNING: This function will call exit() on failure.
     dbprintlf(RED_BG "WARNING: si446x_init() calls exit() on failure!");
     // TODO: COMMENT OUT FOR DEBUGGING PURPOSES ONLY
+#ifndef UHF_NOT_CONNECTED_DEBUG
     si446x_init();
+#endif
     
     dbprintlf(GREEN_FG "si446x_init() successful!");
     /*
@@ -262,11 +268,16 @@ int gs_uhf_init(void)
      * func: 0x1
      */
     // TODO: COMMENT OUT FOR DEBUGGING PURPOSES ONLY
+#ifndef UHF_NOT_CONNECTED_DEBUG
     si446x_info_t info[1];
     memset(info, 0x0, sizeof(si446x_info_t));
     si446x_getInfo(info);
     int cond = (info->chipRev == 0x22) && (info->partBuild == 0x00) && (info->id == 0x8600) && (info->customer == 0x00) && (info->romId == 0x6);
     return cond ? 1 : 0;
+#endif
+#ifdef UHF_NOT_CONNECTED_DEBUG
+    return 1;
+#endif
 }
 
 ssize_t gs_uhf_read(char *buf, ssize_t buffer_size, int16_t *rssi, bool *gst_done)

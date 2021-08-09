@@ -16,6 +16,8 @@
 #include <si446x.h>
 #include "network.hpp"
 
+// #define UHF_NOT_CONNECTED_DEBUG
+
 #define SERVER_POLL_RATE 5 // Once per this many seconds
 #define SEC *1000000
 #define RECV_TIMEOUT 15
