@@ -41,6 +41,8 @@ void *gs_uhf_rx_thread(void *args)
                 usleep(5 SEC);
                 continue;
             }
+            
+            // TODO: COMMENT OUT FOR DEBUGGING PURPOSES ONLY
             global_data->uhf_ready = true;
         }
 
@@ -49,6 +51,8 @@ void *gs_uhf_rx_thread(void *args)
 
         // Enable pipe mode.
         // gs_uhf_enable_pipe();
+
+        // TODO: COMMENT OUT FOR DEBUGGING PURPOSES ONLY
         si446x_en_pipe();
 
         int retval = gs_uhf_read(buffer, sizeof(buffer), UHF_RSSI, &global_data->uhf_ready);
@@ -177,6 +181,7 @@ void *gs_network_rx_thread(void *args)
 
                         // TODO: Find a better spot for this. Perhaps detecting if its been more than 2 minutes since last TX.
                         // gs_uhf_enable_pipe();
+
                         si446x_en_pipe();
 
                         ssize_t retval = gs_uhf_write((char *)payload, payload_size, &global_data->uhf_ready);
@@ -240,6 +245,7 @@ int gs_uhf_init(void)
 
     // WARNING: This function will call exit() on failure.
     dbprintlf(RED_BG "WARNING: si446x_init() calls exit() on failure!");
+    // TODO: COMMENT OUT FOR DEBUGGING PURPOSES ONLY
     si446x_init();
     
     dbprintlf(GREEN_FG "si446x_init() successful!");
@@ -255,6 +261,7 @@ int gs_uhf_init(void)
      * patch: 0x0
      * func: 0x1
      */
+    // TODO: COMMENT OUT FOR DEBUGGING PURPOSES ONLY
     si446x_info_t info[1];
     memset(info, 0x0, sizeof(si446x_info_t));
     si446x_getInfo(info);
