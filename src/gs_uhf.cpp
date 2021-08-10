@@ -201,6 +201,8 @@ void *gs_network_rx_thread(void *args)
                     }
                     break;
                 }
+                case CS_TYPE_POLL_XBAND_CONFIG:
+                case CS_TYPE_XBAND_COMMAND:
                 case CS_TYPE_CONFIG_XBAND:
                 case CS_TYPE_NULL:
                 case CS_TYPE_ERROR:
