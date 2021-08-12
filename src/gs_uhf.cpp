@@ -347,8 +347,16 @@ ssize_t gs_uhf_write(char *buf, ssize_t buffer_size, bool *gst_done)
     frame->termination = GST_TERMINATION;
 
     ssize_t retval = 0;
-    while (((retval = si446x_write(frame, sizeof(gst_frame_t))) <= 0) && !(*gst_done))
-        ;
+    while (retval == 0)
+    {
+        retval = si446x_write(frame, sizeof(gst_frame_t));
+        if (retval == 0)
+        {
+            dbprintlf(RED_FG "Sent zero bytes.");
+        }
+    }
+
+    dbprintlf(BLUE_FG "Sent %d bytes.", retval);
     
     return retval;
 }
