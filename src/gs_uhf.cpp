@@ -38,6 +38,7 @@ void *gs_uhf_rx_thread(void *args)
         if (!global_data->uhf_ready)
         {
             global_data->uhf_initd = gs_uhf_init();
+            dbprintlf(RED_FG "Init status: %d", global_data->uhf_initd);
             if (global_data->uhf_initd != 1)
             {
                 dbprintlf(RED_FG "UHF Radio initialization failure (%d).", global_data->uhf_initd);
@@ -294,7 +295,7 @@ int gs_uhf_init(void)
     si446x_info_t info[1];
     memset(info, 0x0, sizeof(si446x_info_t));
     si446x_getInfo(info);
-    int cond = (info->chipRev == 0x22) && (info->partBuild == 0x00) && (info->id == 0x8600) && (info->customer == 0x00) && (info->romId == 0x6);
+    int cond = (info->part & 0x4460) == 0x4460;
     return cond ? 1 : 0;
 #endif
 #ifdef UHF_NOT_CONNECTED_DEBUG
