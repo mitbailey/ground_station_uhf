@@ -31,6 +31,14 @@ void *gs_uhf_rx_thread(void *args)
 
     while (global_data->network_data->thread_status > 0)
     {
+        si446x_info_t si_info[1];
+        si_info->part = 0;
+        si446x_getInfo(si_info);
+        if ((si_info->part & 0x4460) != 0x4460)
+        {
+            global_data->uhf_ready = false;
+        }
+
         // Init UHF.
         if (!global_data->uhf_ready)
         {
@@ -357,10 +365,10 @@ ssize_t gs_uhf_write(char *buf, ssize_t buffer_size, bool *gst_done)
     while (retval == 0)
     {
         retval = si446x_write(frame, sizeof(gst_frame_t));
-        // if (retval == 0)
-        // {
-        //     dbprintlf(RED_FG "Sent zero bytes.");
-        // }
+        if (retval == 0)
+        {
+            dbprintlf(RED_FG "Sent zero bytes.");
+        }
     }
 
     dbprintlf(BLUE_FG "Transmitted with value: %d (note: this is not the number of bytes sent).", retval);
