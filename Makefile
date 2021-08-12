@@ -7,7 +7,7 @@ TARGET = roof_uhf.out
 
 all: $(COBJS) $(CPPOBJS)
 	$(CXX) $(CXXFLAGS) $(COBJS) $(CPPOBJS) -o $(TARGET) $(EDLDFLAGS)
-	./$(TARGET)
+	sudo ./$(TARGET)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -o $@ -c $<
