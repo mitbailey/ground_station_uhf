@@ -190,7 +190,7 @@ void *gs_network_rx_thread(void *args)
 
                         dbprintlf(BLUE_FG "Attempting to transmit %d bytes to SPACE-HAUC.", payload_size);
                         ssize_t retval = gs_uhf_write((char *)payload, payload_size, &global_data->uhf_ready);
-                        dbprintlf(BLUE_FG "Transmitted %d bytes to SPACE-HAUC.", retval);
+                        dbprintlf(BLUE_FG "Transmitted with value: %d (note: this is not the number of bytes sent).", retval);
                     }
                     else
                     {
@@ -356,7 +356,7 @@ ssize_t gs_uhf_write(char *buf, ssize_t buffer_size, bool *gst_done)
         }
     }
 
-    dbprintlf(BLUE_FG "Sent %d bytes.", retval);
+    dbprintlf(BLUE_FG "Transmitted with value: %d (note: this is not the number of bytes sent).", retval);
     
     return retval;
 }
