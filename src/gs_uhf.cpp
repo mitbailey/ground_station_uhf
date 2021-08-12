@@ -206,7 +206,15 @@ void *gs_network_rx_thread(void *args)
 
                         // TODO: Find a better spot for this. Perhaps detecting if its been more than 2 minutes since last TX.
                         // gs_uhf_enable_pipe();
-
+                        si446x_info_t si_info[1];
+                        si_info->part = 0;
+                        si446x_getInfo(si_info);
+                        if ((si_info->part & 0x4460) != 0x4460)
+                        {
+                            dbprintlf(RED_FG "UHF Radio not available");
+                            continue;
+                            // TODO: DO we let the client know this failed?
+                        }
                         si446x_en_pipe();
 
                         dbprintlf(BLUE_FG "Attempting to transmit %d bytes to SPACE-HAUC.", payload_size);
