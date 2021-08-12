@@ -170,10 +170,15 @@ void *gs_network_rx_thread(void *args)
                     dbprintlf(FATAL "Memory for payload failed to allocate, packet lost.");
                     continue;
                 }
-                
+
                 if (network_frame->retrievePayload(payload, payload_size) < 0)
                 {
                     dbprintlf(RED_FG "Error retrieving data.");
+                    if (payload != NULL)
+                    {
+                        free(payload);
+                        payload = NULL;
+                    }
                     continue;
                 }
 
@@ -212,6 +217,11 @@ void *gs_network_rx_thread(void *args)
                         if ((si_info->part & 0x4460) != 0x4460)
                         {
                             dbprintlf(RED_FG "UHF Radio not available");
+                            if (payload != NULL)
+                            {
+                                free(payload);
+                                payload = NULL;
+                            }
                             continue;
                             // TODO: DO we let the client know this failed?
                         }
@@ -241,7 +251,11 @@ void *gs_network_rx_thread(void *args)
                     break;
                 }
                 }
-                free(payload);
+                if (payload != NULL)
+                {
+                    free(payload);
+                    payload = NULL;
+                }
             }
             else
             {
@@ -285,7 +299,7 @@ int gs_uhf_init(void)
 #ifndef UHF_NOT_CONNECTED_DEBUG
     si446x_init();
 #endif
-    
+
     dbprintlf(GREEN_FG "si446x_init() successful!");
     /*
      * chipRev: 0x22
@@ -386,6 +400,6 @@ ssize_t gs_uhf_write(char *buf, ssize_t buffer_size, bool *gst_done)
     }
 
     dbprintlf(BLUE_FG "Transmitted with value: %d (note: this is not the number of bytes sent).", retval);
-    
+
     return retval;
 }
