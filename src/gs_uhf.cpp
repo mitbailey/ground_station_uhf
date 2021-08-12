@@ -151,6 +151,12 @@ void *gs_network_rx_thread(void *args)
                 // Extract the payload into a buffer.
                 int payload_size = network_frame->getPayloadSize();
                 unsigned char *payload = (unsigned char *)malloc(payload_size);
+                if (payload == NULL)
+                {
+                    dbprintlf(FATAL "Memory for payload failed to allocate, packet lost.");
+                    continue;
+                }
+                
                 if (network_frame->retrievePayload(payload, payload_size) < 0)
                 {
                     dbprintlf(RED_FG "Error retrieving data.");
