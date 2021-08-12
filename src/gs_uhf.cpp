@@ -93,6 +93,7 @@ void *gs_uhf_rx_thread(void *args)
         gs_network_transmit(global_data->network_data, CS_TYPE_DATA, CS_ENDPOINT_CLIENT, buffer, sizeof(cmd_output_t));
     }
 
+    dbprintlf(FATAL "gs_uhf_rx_thread exiting!");
     if (global_data->network_data->thread_status > 0)
     {
         global_data->network_data->thread_status = 0;
