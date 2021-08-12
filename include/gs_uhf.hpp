@@ -33,15 +33,15 @@
 #define GST_MAX_PACKET_SIZE 64
 #define GST_GUID 0x6f35
 #define GST_TERMINATION 0x0d0a // CRLF
-typedef struct __attribute__((packed))
-{
-    uint16_t guid;
-    uint16_t crc;
-    uint8_t payload[GST_MAX_PAYLOAD_SIZE];
-    uint16_t crc1;
-    uint16_t termination;
-} gst_frame_t;
-#define GST_MAX_FRAME_SIZE sizeof(gst_frame_t)
+// typedef struct __attribute__((packed))
+// {
+//     uint16_t guid;
+//     uint16_t crc;
+//     uint8_t payload[GST_MAX_PAYLOAD_SIZE];
+//     uint16_t crc1;
+//     uint16_t termination;
+// } gst_frame_t;
+// #define GST_MAX_FRAME_SIZE sizeof(gst_frame_t)
 
 
 enum GST_ERRORS

@@ -285,70 +285,60 @@ int gs_uhf_init(void)
 
 ssize_t gs_uhf_read(char *buf, ssize_t buffer_size, int16_t *rssi, bool *gst_done)
 {
-    if (buffer_size < GST_MAX_PAYLOAD_SIZE)
+    if (buffer_size != sizeof(cmd_output_t))
     {
-        eprintf("Payload size incorrect.");
-        return GST_ERROR;
+        dbprintlf(RED_FG "Payload size incorrect. Must be %d bytes.", sizeof(cmd_output_t));
+        return -1;
     }
 
-    gst_frame_t frame[1];
-    memset(frame, 0x0, sizeof(gst_frame_t));
+    memset(buf, 0x0, buffer_size);
 
-    ssize_t retval = 0;
-    while (((retval = si446x_read(frame, sizeof(gst_frame_t), rssi)) <= 0) && (!(*gst_done)))
-        ;
+    int16_t RSSI = 0;
 
-    if (retval != sizeof(gst_frame_t))
+    int bytes_read = 0;
+    while (bytes_read == 0 && !(*gst_done))
     {
-        eprintf("Read in %d bytes, not a valid packet", retval);
-        return -GST_PACKET_INCOMPLETE;
+        bytes_read = si446x_read(buf, buffer_size, &RSSI);
+        if (bytes_read == 0)
+        {
+            dbprintlf(RED_FG "Read 0 bytes!");
+        }
     }
 
-    if (frame->guid != GST_GUID)
+    if (bytes_read != sizeof(cmd_output_t))
     {
-        eprintf("GUID 0x%04x", frame->guid);
-        return -GST_GUID_ERROR;
-    }
-    else if (frame->crc != frame->crc1)
-    {
-        eprintf("0x%x != 0x%x", frame->crc, frame->crc1);
-        return -GST_CRC_MISMATCH;
-    }
-    else if (frame->crc != internal_crc16(frame->payload, GST_MAX_PAYLOAD_SIZE))
-    {
-        eprintf("CRC %d", frame->crc);
-        return -GST_CRC_ERROR;
-    }
-    else if (frame->termination != GST_TERMINATION)
-    {
-        eprintf("TERMINATION 0x%x", frame->termination);
+        dbprintlf(RED_FG "Read odd number of bytes: %d", bytes_read);
+        return -1;
     }
 
-    memcpy(buf, frame->payload, GST_MAX_PAYLOAD_SIZE);
-
-    return retval;
+    return bytes_read;
 }
 
 ssize_t gs_uhf_write(char *buf, ssize_t buffer_size, bool *gst_done)
 {
-    if (buffer_size < GST_MAX_PAYLOAD_SIZE)
+    if (buffer_size != sizeof(cmd_input_t))
     {
         eprintf("Payload size incorrect.");
         return -1;
     }
 
-    gst_frame_t frame[1];
-    memset(frame, 0x0, sizeof(gst_frame_t));
-
-    frame->guid = GST_GUID;
-    memcpy(frame->payload, buf, buffer_size);
-    frame->crc = internal_crc16(frame->payload, GST_MAX_PAYLOAD_SIZE);
-    frame->crc1 = frame->crc;
-    frame->termination = GST_TERMINATION;
-
-    ssize_t retval = 0;
-    while (((retval = si446x_write(frame, sizeof(gst_frame_t))) <= 0) && (!(*gst_done)))
-        ;
+    cmd_input_t *packet = (cmd_input_t *) buf;
     
-    return retval;
+    dbprintlf(YELLOW_FG "Transmitting the following cmd_input_t to SPACE-HAUC:");
+    dbprintlf(YELLOW_FG "mod ---------- 0x%x", packet->mod);
+    dbprintlf(YELLOW_FG "cmd ---------- 0x%x", packet->cmd);
+    dbprintlf(YELLOW_FG "unused ------- 0x%x", packet->unused);
+    dbprintlf(YELLOW_FG "data_size ---- 0x%x", packet->data_size);
+
+    int bytes_writ = 0;
+    while (bytes_writ == 0 && !(*gst_done))
+    {
+        bytes_writ = si446x_write(packet, sizeof(cmd_input_t));
+        if (bytes_writ == 0)
+        {
+            dbprintlf(RED_FG "Wrote 0 bytes!");
+        }
+    }
+    
+    return bytes_writ;
 }
