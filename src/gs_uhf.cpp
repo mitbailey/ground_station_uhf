@@ -300,28 +300,28 @@ ssize_t gs_uhf_read(char *buf, ssize_t buffer_size, int16_t *rssi, bool *gst_don
 
     if (retval != sizeof(gst_frame_t))
     {
-        eprintf("Read in %d bytes, not a valid packet", retval);
+        dbprintlf(RED_FG "Read in %d bytes, not a valid packet", retval);
         return -GST_PACKET_INCOMPLETE;
     }
 
     if (frame->guid != GST_GUID)
     {
-        eprintf("GUID 0x%04x", frame->guid);
+        dbprintlf(RED_FG "GUID 0x%04x", frame->guid);
         return -GST_GUID_ERROR;
     }
     else if (frame->crc != frame->crc1)
     {
-        eprintf("0x%x != 0x%x", frame->crc, frame->crc1);
+        dbprintlf(RED_FG "0x%x != 0x%x", frame->crc, frame->crc1);
         return -GST_CRC_MISMATCH;
     }
     else if (frame->crc != internal_crc16(frame->payload, GST_MAX_PAYLOAD_SIZE))
     {
-        eprintf("CRC %d", frame->crc);
+        dbprintlf(RED_FG "CRC %d", frame->crc);
         return -GST_CRC_ERROR;
     }
     else if (frame->termination != GST_TERMINATION)
     {
-        eprintf("TERMINATION 0x%x", frame->termination);
+        dbprintlf(RED_FG "TERMINATION 0x%x", frame->termination);
     }
 
     memcpy(buf, frame->payload, GST_MAX_PAYLOAD_SIZE);
@@ -333,7 +333,7 @@ ssize_t gs_uhf_write(char *buf, ssize_t buffer_size, bool *gst_done)
 {
     if (buffer_size < GST_MAX_PAYLOAD_SIZE)
     {
-        eprintf("Payload size incorrect.");
+        dbprintlf(RED_FG "Payload size incorrect.");
         return -1;
     }
 
