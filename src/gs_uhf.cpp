@@ -76,6 +76,7 @@ void *gs_uhf_rx_thread(void *args)
             dbprintlf(BLUE_BG "Received from UHF.");
         }
 
+        dbprintlf(BLUE_FG "UHF receive payload has a cmd_output_t.mod value of: %d", ((cmd_output_t *)buffer)->mod);
         gs_network_transmit(global_data->network_data, CS_TYPE_DATA, CS_ENDPOINT_CLIENT, buffer, sizeof(cmd_output_t));
     }
 
