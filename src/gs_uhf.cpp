@@ -73,10 +73,10 @@ void *gs_uhf_rx_thread(void *args)
         }
         else
         {
-            dbprintlf("Received from UHF.");
+            dbprintlf(BLUE_BG "Received from UHF.");
         }
 
-        gs_network_transmit(global_data->network_data, CS_TYPE_DATA, CS_ENDPOINT_CLIENT, buffer, sizeof(buffer));
+        gs_network_transmit(global_data->network_data, CS_TYPE_DATA, CS_ENDPOINT_CLIENT, buffer, sizeof(cmd_output_t));
     }
 
     if (global_data->network_data->thread_status > 0)
