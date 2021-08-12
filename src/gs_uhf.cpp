@@ -26,18 +26,13 @@ void *gs_uhf_rx_thread(void *args)
 {
     // TODO: As of right now, there is no way to detect if the UHF Radio crashes, which may require a re-init. In this event, global_data->uhf_ready should be set to false and the radio should be re-init'd. However, this feature doesn't exist in the middleware.
     // TODO: Possibly just assume any uhf_read failure is because of a crash UHF?
-
+    dbprintlf(BLUE_FG "Entered RX Thread");
     global_data_t *global_data = (global_data_t *)args;
 
     while (global_data->network_data->thread_status > 0)
     {
         si446x_info_t si_info[1];
         si_info->part = 0;
-        si446x_getInfo(si_info);
-        if ((si_info->part & 0x4460) != 0x4460)
-        {
-            global_data->uhf_ready = false;
-        }
 
         // Init UHF.
         if (!global_data->uhf_ready)
@@ -54,6 +49,15 @@ void *gs_uhf_rx_thread(void *args)
 #ifndef UHF_NOT_CONNECTED_DEBUG
             global_data->uhf_ready = true;
 #endif
+        }
+        si446x_getInfo(si_info);
+        dbprintlf(BLUE_FG "Read part: 0x%x", si_info->part);
+        if ((si_info->part & 0x4460) != 0x4460)
+        {
+            global_data->uhf_ready = false;
+            usleep(5 SEC);
+            dbprintlf(FATAL "Part number mismatch: 0x%x, retrying init", si_info->part);
+            continue;
         }
 
         char buffer[GST_MAX_PACKET_SIZE];

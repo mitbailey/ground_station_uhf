@@ -33,7 +33,7 @@ int main(int argc, char **argv)
     global_data->network_data->rx_active = true;
     
     // Init UHF here prior to anything else to avoid info-getting causing a SegFault.
-    si446x_init();
+    // si446x_init();
 
     // 1 = All good, 0 = recoverable failure, -1 = fatal failure (close program)
     global_data->network_data->thread_status = 1;
