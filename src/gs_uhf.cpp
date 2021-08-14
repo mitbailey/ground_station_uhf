@@ -232,6 +232,11 @@ void *gs_network_rx_thread(void *args)
                     }
                     break;
                 }
+                case NetType::POLL:
+                {
+                    dbprintlf(BLUE_FG "Received status poll response.");
+                    global->netstat = network_frame->getNetstat();
+                }
                 default:
                 {
                     break;
@@ -266,7 +271,7 @@ void *gs_network_rx_thread(void *args)
     }
 
     network_data->recv_active = false;
-    
+
     dbprintlf(FATAL "DANGER! NETWORK RECEIVE THREAD IS RETURNING!");
     if (global->network_data->thread_status > 0)
     {
