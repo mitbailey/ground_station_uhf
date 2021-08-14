@@ -11,11 +11,20 @@
 
 #include <pthread.h>
 #include <unistd.h>
+#include <signal.h>
 #include "meb_debug.hpp"
 #include "gs_uhf.hpp"
 
 int main(int argc, char **argv)
 {
+    // Ignores broken pipe signal, which is sent to the calling process when writing to a nonexistent socket (
+    // see: https://www.linuxquestions.org/questions/programming-9/how-to-detect-broken-pipe-in-c-linux-292898/
+    // and 
+    // https://github.com/sunipkmukherjee/example_imgui_server_client/blob/master/guimain.cpp
+    // Allows manual handling of a broken pipe signal using 'if (errno == EPIPE) {...}'.
+    // Broken pipe signal will crash the process, and it caused by sending data to a closed socket.
+    signal(SIGPIPE, SIG_IGN);
+
     // Spawn UHF-RX thread.
     // Spawn Network-RX thread.
 
@@ -31,12 +40,6 @@ int main(int argc, char **argv)
     global_data_t global[1] = {0};
     global->network_data = new NetDataClient(NetPort::ROOFUHF, SERVER_POLL_RATE);
     global->network_data->recv_active = true;
-    
-    // Init UHF here prior to anything else to avoid info-getting causing a SegFault.
-    // si446x_init();
-
-    // 1 = All good, 0 = recoverable failure, -1 = fatal failure (close program)
-    global->network_data->thread_status = 1;
 
     // Create Ground Station Network thread IDs.
     pthread_t net_polling_tid, net_rx_tid, uhf_rx_tid;
@@ -45,6 +48,9 @@ int main(int argc, char **argv)
     // Only gets-out if a thread declares an unrecoverable emergency and sets its status to -1.
     while (global->network_data->thread_status > -1)
     {
+        // 1 = All good, 0 = recoverable failure, -1 = fatal failure (close program)
+        global->network_data->thread_status = 1;
+
         // Initialize and begin socket communication to the server.
         if (!global->network_data->connection_ready)
         {
@@ -88,6 +94,8 @@ int main(int argc, char **argv)
 
     // Destroy other things.
     close(global->network_data->socket);
+
+    delete global->network_data;
 
     return global->network_data->thread_status;
 }

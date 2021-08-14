@@ -232,6 +232,16 @@ void *gs_network_rx_thread(void *args)
                     }
                     break;
                 }
+                case NetType::ACK:
+                {
+                    dbprintlf(BLUE_FG "Received an ACK frame.");
+                    break;
+                }
+                case NetType::NACK:
+                {
+                    dbprintlf(BLUE_FG "Received a NACK frame.");
+                    break;
+                }
                 default:
                 {
                     break;
