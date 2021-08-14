@@ -61,7 +61,7 @@ int main(int argc, char **argv)
         // Start the threads.
         pthread_create(&net_polling_tid, NULL, gs_polling_thread, global->network_data);
         pthread_create(&net_rx_tid, NULL, gs_network_rx_thread, global);
-        pthread_create(&uhf_rx_tid, NULL, gs_uhf_rx_thread, global);
+        // pthread_create(&uhf_rx_tid, NULL, gs_uhf_rx_thread, global);
         
         void *thread_return;
         pthread_join(net_polling_tid, &thread_return);
