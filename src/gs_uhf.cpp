@@ -19,43 +19,40 @@
 #include "gs_uhf.hpp"
 #include "meb_debug.hpp"
 
-// SegFault
-// is gs_uhf_rx_thread
-
 void *gs_uhf_rx_thread(void *args)
 {
     // TODO: As of right now, there is no way to detect if the UHF Radio crashes, which may require a re-init. In this event, global_data->uhf_ready should be set to false and the radio should be re-init'd. However, this feature doesn't exist in the middleware.
     // TODO: Possibly just assume any uhf_read failure is because of a crash UHF?
     dbprintlf(BLUE_FG "Entered RX Thread");
-    global_data_t *global_data = (global_data_t *)args;
+    global_data_t *global = (global_data_t *)args;
 
-    while (global_data->network_data->thread_status > 0)
+    while (global->network_data->thread_status > 0)
     {
         si446x_info_t si_info[1];
         si_info->part = 0;
 
         // Init UHF.
-        if (!global_data->uhf_ready)
+        if (!global->uhf_ready)
         {
-            global_data->uhf_initd = gs_uhf_init();
-            dbprintlf(RED_FG "Init status: %d", global_data->uhf_initd);
-            if (global_data->uhf_initd != 1)
+            global->uhf_initd = gs_uhf_init();
+            dbprintlf(RED_FG "Init status: %d", global->uhf_initd);
+            if (global->uhf_initd != 1)
             {
-                dbprintlf(RED_FG "UHF Radio initialization failure (%d).", global_data->uhf_initd);
+                dbprintlf(RED_FG "UHF Radio initialization failure (%d).", global->uhf_initd);
                 usleep(5 SEC);
                 continue;
             }
 
             // TODO: COMMENT OUT FOR DEBUGGING PURPOSES ONLY
 #ifndef UHF_NOT_CONNECTED_DEBUG
-            global_data->uhf_ready = true;
+            global->uhf_ready = true;
 #endif
         }
         si446x_getInfo(si_info);
         dbprintlf(BLUE_FG "Read part: 0x%x", si_info->part);
         if ((si_info->part & 0x4460) != 0x4460)
         {
-            global_data->uhf_ready = false;
+            global->uhf_ready = false;
             usleep(5 SEC);
             dbprintlf(FATAL "Part number mismatch: 0x%x, retrying init", si_info->part);
             continue;
@@ -72,7 +69,7 @@ void *gs_uhf_rx_thread(void *args)
         si446x_en_pipe();
 #endif
 
-        int retval = gs_uhf_read(buffer, sizeof(buffer), UHF_RSSI, &global_data->uhf_ready);
+        int retval = gs_uhf_read(buffer, sizeof(buffer), UHF_RSSI, &global->uhf_ready);
 
         if (retval < 0)
         {
@@ -90,26 +87,28 @@ void *gs_uhf_rx_thread(void *args)
         }
 
         dbprintlf(BLUE_FG "UHF receive payload has a cmd_output_t.mod value of: %d", ((cmd_output_t *)buffer)->mod);
-        gs_network_transmit(global_data->network_data, CS_TYPE_DATA, CS_ENDPOINT_CLIENT, buffer, sizeof(cmd_output_t));
+        NetFrame *network_frame = new NetFrame((unsigned char *)buffer, sizeof(cmd_output_t), NetType::DATA, NetVertex::CLIENT);
+        network_frame->sendFrame(global->network_data);
+        delete network_frame;
     }
 
     dbprintlf(FATAL "gs_uhf_rx_thread exiting!");
-    if (global_data->network_data->thread_status > 0)
+    if (global->network_data->thread_status > 0)
     {
-        global_data->network_data->thread_status = 0;
+        global->network_data->thread_status = 0;
     }
     return nullptr;
 }
 
 void *gs_network_rx_thread(void *args)
 {
-    global_data_t *global_data = (global_data_t *)args;
-    network_data_t *network_data = global_data->network_data;
+    global_data_t *global = (global_data_t *)args;
+    NetDataClient *network_data = global->network_data;
 
     // Similar, if not identical, to the network functionality in ground_station.
     // Roof UHF is a network client to the GS Server, and so should be very similar in socketry to ground_station.
 
-    while (network_data->rx_active)
+    while (network_data->recv_active)
     {
         if (!network_data->connection_ready)
         {
@@ -119,9 +118,9 @@ void *gs_network_rx_thread(void *args)
 
         int read_size = 0;
 
-        while (read_size >= 0 && network_data->rx_active)
+        while (read_size >= 0 && network_data->recv_active)
         {
-            char buffer[sizeof(NetworkFrame) * 2];
+            char buffer[sizeof(NetFrame) * 2];
             memset(buffer, 0x0, sizeof(buffer));
 
             dbprintlf(BLUE_BG "Waiting to receive...");
@@ -138,17 +137,17 @@ void *gs_network_rx_thread(void *args)
                 printf("(END)\n");
 
                 // Parse the data by mapping it to a NetworkFrame.
-                NetworkFrame *network_frame = (NetworkFrame *)buffer;
+                NetFrame *network_frame = (NetFrame *)buffer;
 
                 // Check if we've received data in the form of a NetworkFrame.
-                if (network_frame->checkIntegrity() < 0)
+                if (network_frame->validate() < 0)
                 {
-                    dbprintlf("Integrity check failed (%d).", network_frame->checkIntegrity());
+                    dbprintlf("Integrity check failed (%d).", network_frame->validate());
                     continue;
                 }
                 dbprintlf("Integrity check successful.");
 
-                global_data->netstat = network_frame->getNetstat();
+                global->netstat = network_frame->getNetstat();
 
                 // For now, just print the Netstat.
                 uint8_t netstat = network_frame->getNetstat();
@@ -161,6 +160,8 @@ void *gs_network_rx_thread(void *args)
                 ((netstat & 0x20) == 0x20) ? printf(GREEN_FG "ONLINE" RESET_ALL "\n") : printf(RED_FG "OFFLINE" RESET_ALL "\n");
                 dbprintf("Haystack ------- ");
                 ((netstat & 0x10) == 0x10) ? printf(GREEN_FG "ONLINE" RESET_ALL "\n") : printf(RED_FG "OFFLINE" RESET_ALL "\n");
+                dbprintf("Track ---------- ");
+                ((netstat & 0x10) == 0x8) ? printf(GREEN_FG "ONLINE" RESET_ALL "\n") : printf(RED_FG "OFFLINE" RESET_ALL "\n");
 
                 // Extract the payload into a buffer.
                 int payload_size = network_frame->getPayloadSize();
@@ -182,35 +183,20 @@ void *gs_network_rx_thread(void *args)
                     continue;
                 }
 
-                NETWORK_FRAME_TYPE type = network_frame->getType();
-                switch (type)
+                switch (network_frame->getType())
                 {
-                case CS_TYPE_ACK:
-                {
-                    dbprintlf(BLUE_FG "Received an ACK frame!");
-                    break;
-                }
-                case CS_TYPE_NACK:
-                {
-                    dbprintlf(BLUE_FG "Received a NACK frame!");
-                    break;
-                }
-                case CS_TYPE_CONFIG_UHF:
+                case NetType::UHF_CONFIG:
                 {
                     dbprintlf(BLUE_FG "Received an UHF CONFIG frame!");
                     // TODO: Configure yourself.
                     break;
                 }
-                case CS_TYPE_DATA:
+                case NetType::DATA:
                 {
                     dbprintlf(BLUE_FG "Received a DATA frame!");
-                    // TODO: Send to SPACE-HAUC.
-                    if (global_data->uhf_ready)
-                    {
-                        // ssize_t retval = uhf_write(global_data->modem, (char *)payload, payload_size);
 
-                        // TODO: Find a better spot for this. Perhaps detecting if its been more than 2 minutes since last TX.
-                        // gs_uhf_enable_pipe();
+                    if (global->uhf_ready)
+                    {
                         si446x_info_t si_info[1];
                         si_info->part = 0;
                         si446x_getInfo(si_info);
@@ -225,10 +211,12 @@ void *gs_network_rx_thread(void *args)
                             continue;
                             // TODO: DO we let the client know this failed?
                         }
+
+                        // Activate pipe mode.
                         si446x_en_pipe();
 
                         dbprintlf(BLUE_FG "Attempting to transmit %d bytes to SPACE-HAUC.", payload_size);
-                        ssize_t retval = gs_uhf_write((char *)payload, payload_size, &global_data->uhf_ready);
+                        ssize_t retval = gs_uhf_write((char *)payload, payload_size, &global->uhf_ready);
                         dbprintlf(BLUE_FG "Transmitted with value: %d (note: this is not the number of bytes sent).", retval);
                     }
                     else
@@ -237,15 +225,13 @@ void *gs_network_rx_thread(void *args)
                         cs_ack_t nack[1];
                         nack->ack = 0;
                         nack->code = NACK_NO_UHF;
-                        gs_network_transmit(network_data, CS_TYPE_NACK, CS_ENDPOINT_CLIENT, nack, sizeof(nack));
+                        
+                        NetFrame *nack_frame = new NetFrame((unsigned char *)nack, sizeof(nack), NetType::NACK, NetVertex::CLIENT);
+                        nack_frame->sendFrame(network_data);
+                        delete nack_frame;
                     }
                     break;
                 }
-                case CS_TYPE_POLL_XBAND_CONFIG:
-                case CS_TYPE_XBAND_COMMAND:
-                case CS_TYPE_CONFIG_XBAND:
-                case CS_TYPE_NULL:
-                case CS_TYPE_ERROR:
                 default:
                 {
                     break;
@@ -265,26 +251,26 @@ void *gs_network_rx_thread(void *args)
         if (read_size == 0)
         {
             dbprintlf(RED_BG "Connection forcibly closed by the server.");
-            strcpy(network_data->discon_reason, "SERVER-FORCED");
+            strcpy(network_data->disconnect_reason, "SERVER-FORCED");
             network_data->connection_ready = false;
             continue;
         }
         else if (errno == EAGAIN)
         {
             dbprintlf(YELLOW_BG "Active connection timed-out (%d).", read_size);
-            strcpy(network_data->discon_reason, "TIMED-OUT");
+            strcpy(network_data->disconnect_reason, "TIMED-OUT");
             network_data->connection_ready = false;
             continue;
         }
         erprintlf(errno);
     }
 
-    network_data->rx_active = false;
+    network_data->recv_active = false;
     dbprintlf(FATAL "DANGER! NETWORK RECEIVE THREAD IS RETURNING!");
 
-    if (global_data->network_data->thread_status > 0)
+    if (global->network_data->thread_status > 0)
     {
-        global_data->network_data->thread_status = 0;
+        global->network_data->thread_status = 0;
     }
     return nullptr;
 }

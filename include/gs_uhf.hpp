@@ -22,7 +22,6 @@
 #define SEC *1000000
 #define RECV_TIMEOUT 15
 #define RADIO_DEVICE_NAME "my_device"
-#define SERVER_PORT 54210
 
 #define NACK_NO_UHF 0x756866 // Roof UHF says it cannot access UHF communications.
 
@@ -59,7 +58,7 @@ typedef struct
 {
     // uhf_modem_t modem; // Just an int.
     int uhf_initd;
-    network_data_t network_data[1];
+    NetDataClient *network_data;
     bool uhf_ready;
     uint8_t netstat;
 } global_data_t;
@@ -130,18 +129,6 @@ void gs_network_tx(global_data_t *global_data, uint8_t *buffer, ssize_t buffer_s
  * @return void* 
  */
 void *gs_polling_thread(void *args);
-
-/**
- * @brief Packs data into a NetworkFrame and sends it.
- * 
- * @param network_data 
- * @param type 
- * @param endpoint 
- * @param data 
- * @param data_size 
- * @return int 
- */
-int gs_network_transmit(network_data_t *network_data, NETWORK_FRAME_TYPE type, NETWORK_FRAME_ENDPOINT endpoint, void *data, int data_size);
 
 /**
  * @brief 
