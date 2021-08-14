@@ -95,7 +95,7 @@ int main(int argc, char **argv)
     // Destroy other things.
     close(global->network_data->socket);
 
+    int retval = global->network_data->thread_status;
     delete global->network_data;
-
-    return global->network_data->thread_status;
+    return retval;
 }
