@@ -166,7 +166,7 @@ void *gs_network_rx_thread(void *args)
                 // Extract the payload into a buffer.
                 int payload_size = network_frame->getPayloadSize();
                 unsigned char *payload = (unsigned char *)malloc(payload_size);
-                if (payload == NULL)
+                if (payload == nullptr)
                 {
                     dbprintlf(FATAL "Memory for payload failed to allocate, packet lost.");
                     continue;
@@ -175,10 +175,10 @@ void *gs_network_rx_thread(void *args)
                 if (network_frame->retrievePayload(payload, payload_size) < 0)
                 {
                     dbprintlf(RED_FG "Error retrieving data.");
-                    if (payload != NULL)
+                    if (payload != nullptr)
                     {
                         free(payload);
-                        payload = NULL;
+                        payload = nullptr;
                     }
                     continue;
                 }
@@ -203,10 +203,10 @@ void *gs_network_rx_thread(void *args)
                         if ((si_info->part & 0x4460) != 0x4460)
                         {
                             dbprintlf(RED_FG "UHF Radio not available");
-                            if (payload != NULL)
+                            if (payload != nullptr)
                             {
                                 free(payload);
-                                payload = NULL;
+                                payload = nullptr;
                             }
                             continue;
                             // TODO: DO we let the client know this failed?
@@ -237,10 +237,10 @@ void *gs_network_rx_thread(void *args)
                     break;
                 }
                 }
-                if (payload != NULL)
+                if (payload != nullptr)
                 {
                     free(payload);
-                    payload = NULL;
+                    payload = nullptr;
                 }
             }
             else
