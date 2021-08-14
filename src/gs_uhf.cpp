@@ -151,7 +151,7 @@ void *gs_network_rx_thread(void *args)
 
                 // For now, just print the Netstat.
                 uint8_t netstat = network_frame->getNetstat();
-                dbprintlf(BLUE_FG "NETWORK STATUS");
+                dbprintlf(BLUE_FG "NETWORK STATUS (%d)", netstat);
                 dbprintf("GUI Client ----- ");
                 ((netstat & 0x80) == 0x80) ? printf(GREEN_FG "ONLINE" RESET_ALL "\n") : printf(RED_FG "OFFLINE" RESET_ALL "\n");
                 dbprintf("Roof UHF ------- ");
@@ -161,7 +161,7 @@ void *gs_network_rx_thread(void *args)
                 dbprintf("Haystack ------- ");
                 ((netstat & 0x10) == 0x10) ? printf(GREEN_FG "ONLINE" RESET_ALL "\n") : printf(RED_FG "OFFLINE" RESET_ALL "\n");
                 dbprintf("Track ---------- ");
-                ((netstat & 0x10) == 0x8) ? printf(GREEN_FG "ONLINE" RESET_ALL "\n") : printf(RED_FG "OFFLINE" RESET_ALL "\n");
+                ((netstat & 0x8) == 0x8) ? printf(GREEN_FG "ONLINE" RESET_ALL "\n") : printf(RED_FG "OFFLINE" RESET_ALL "\n");
 
                 // Extract the payload into a buffer.
                 int payload_size = network_frame->getPayloadSize();
@@ -231,11 +231,6 @@ void *gs_network_rx_thread(void *args)
                         delete nack_frame;
                     }
                     break;
-                }
-                case NetType::POLL:
-                {
-                    dbprintlf(BLUE_FG "Received status poll response.");
-                    global->netstat = network_frame->getNetstat();
                 }
                 default:
                 {
