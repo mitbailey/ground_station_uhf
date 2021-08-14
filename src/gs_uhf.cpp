@@ -108,7 +108,7 @@ void *gs_network_rx_thread(void *args)
     // Similar, if not identical, to the network functionality in ground_station.
     // Roof UHF is a network client to the GS Server, and so should be very similar in socketry to ground_station.
 
-    while (network_data->recv_active)
+    while (network_data->recv_active && network_data->thread_status > 0)
     {
         if (!network_data->connection_ready)
         {
@@ -118,7 +118,7 @@ void *gs_network_rx_thread(void *args)
 
         int read_size = 0;
 
-        while (read_size >= 0 && network_data->recv_active)
+        while (read_size >= 0 && network_data->recv_active && network_data->thread_status > 0)
         {
             char buffer[sizeof(NetFrame) * 2];
             memset(buffer, 0x0, sizeof(buffer));
@@ -266,8 +266,8 @@ void *gs_network_rx_thread(void *args)
     }
 
     network_data->recv_active = false;
+    
     dbprintlf(FATAL "DANGER! NETWORK RECEIVE THREAD IS RETURNING!");
-
     if (global->network_data->thread_status > 0)
     {
         global->network_data->thread_status = 0;
