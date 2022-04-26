@@ -1,3 +1,5 @@
+Deprecated, superseded by https://github.com/SPACE-HAUC/gs_uhf.
+
 # ground_station_uhf
 SPACE-HAUC Ground Station software for roof-top UHF radios.  
 
